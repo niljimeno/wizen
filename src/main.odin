@@ -14,10 +14,12 @@ main :: proc() {
 	}
 	defer delete(data)
 
-	tokenized_text := tokenizer.tokenize(data)
+	tokenized_text, tokErr := tokenizer.tokenize(data)
+	if err != nil {
+		fmt.panicf("%v\n", err)
+	}
 
 	fmt.printf("%s\n", data)
-	fmt.printf("%v\n", tokenized_text)
 }
 
 run_interpreter :: proc() {

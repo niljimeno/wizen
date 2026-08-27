@@ -1,16 +1,30 @@
 package tokenizer
 
 import "core:fmt"
-Opener :: enum {
+Group :: enum {
 	Paren,
-	Quote,
+	Curlie,
+	Square,
 	None,
 }
 
 State :: enum {
 	ReadingVar,
 	ReadingString,
-	Waiting,
+	Normal,
+}
+
+Data :: struct {
+	state: State,
+	start: int,
+	stack: [dynamic]Group,
+	text:  [dynamic][]byte,
+	input: []byte,
+}
+
+TokenizerError :: enum {
+	UnclosedParentheses,
+	ParenthesesMismatch,
 }
 
 Space :: enum {}
@@ -20,7 +34,7 @@ word_char :: proc(c: byte) -> bool {
 }
 
 var_char :: proc(c: byte) -> bool {
-	return word_char(c) || c == '-' || c == ')'
+	return word_char(c) || c == '-'
 }
 
 opener_char :: proc(c: byte) -> bool {
@@ -31,74 +45,141 @@ closer_char :: proc(c: byte) -> bool {
 	return c == ')' || c == ']' || c == '}'
 }
 
+empty_char :: proc(c: byte) -> bool {
+	return c == ' ' || c == '\n' || c == '\r'
+}
+
+get_group :: proc(c: byte) -> Group {
+	switch c {
+	case '(', ')':
+		return .Paren
+	case '[', ']':
+		return .Square
+	case '{', '}':
+		return .Curlie
+	}
+
+	return nil
+}
+
+open_stack :: proc(c: byte, stack: ^[dynamic]Group) {
+	opener := get_group(c)
+	append(stack, opener)
+}
+
+close_stack :: proc(c: byte, stack: ^[dynamic]Group) -> TokenizerError {
+	stack_count := len(stack)
+	if stack_count == 0 {
+		return .ParenthesesMismatch
+	}
+
+	last := stack[len(stack) - 1]
+	if get_group(c) != last {
+		return .ParenthesesMismatch
+	}
+
+	pop(stack)
+	return nil
+}
+
 transition :: proc(transitor: byte) -> State {
 	if var_char(transitor) {
 		return .ReadingVar
-	}
-
-	if opener_char(transitor) || closer_char(transitor) {
-		return .Waiting
 	}
 
 	if transitor == '"' {
 		return .ReadingString
 	}
 
-	return .Waiting
+	return .Normal
 }
 
-tokenize :: proc(input: []byte) -> [][]byte {
-	starting: int
-	state: State = .Waiting
+process_tokenizer :: proc(data: ^Data, i: int) -> TokenizerError {
+	c := data.input[i]
 
-
-	tokenized_text := [dynamic][]byte{}
-
-	i: int
-	for i = 0; i < len(input); i += 1 {
-
-		fmt.printf("%v\n", state)
-
-		switch state {
-		case .Waiting:
-			if input[i] == ' ' {
-				continue
-			}
-			starting = i
-			state = transition(input[i])
-
-		case .ReadingVar:
-			if var_char(input[i]) {
-				continue
-			}
-
-			append(&tokenized_text, input[starting:i])
-			state = .Waiting
-
-		case .ReadingString:
-			if input[i] != '"' {
-				continue
-			}
-
-			append(&tokenized_text, input[starting:i + 1])
-			state = .Waiting
+	switch data.state {
+	case .Normal:
+		if empty_char(c) {
+			return nil
 		}
+		data.start = i
+
+		if opener_char(c) {
+			open_stack(c, &data.stack)
+			append(&data.text, data.input[i:i + 1])
+		}
+
+		if closer_char(c) {
+			err := close_stack(c, &data.stack)
+			if err != nil {
+				return err
+			}
+
+			append(&data.text, data.input[i:i + 1])
+			return nil
+		}
+
+		err: TokenizerError
+		data.state = transition(c)
+		if err != nil {
+			return err
+		}
+
+	case .ReadingVar:
+		if var_char(c) {
+			return nil
+		}
+
+		append(&data.text, data.input[data.start:i])
+		data.state = .Normal
+
+	case .ReadingString:
+		if c != '"' {
+			return nil
+		}
+
+		append(&data.text, data.input[data.start:i + 1])
+		data.state = .Normal
 	}
 
-	switch state {
-	case .Waiting:
+	return nil
+}
+
+tokenize :: proc(input: []byte) -> ([][]byte, TokenizerError) {
+	data := Data {
+		state = .Normal,
+		start = 0,
+		input = input,
+	}
+
+	i: int
+	for ; i < len(input); i += 1 {
+		process_tokenizer(&data, i)
+	}
+
+	/*
+	switch data.state {
+	case .Normal:
 		break
 	case .ReadingVar:
 	case .ReadingString:
-		append(&tokenized_text, input[starting:i])
+		append(&data.text, input[data.start:i])
 	}
+	*/
 
-	for v in tokenized_text {
+	for v in data.text {
 		fmt.printf("%s|", v)
 	}
 
-	response := make([][]byte, len(tokenized_text))
-	copy_slice(response, tokenized_text[:])
+	fmt.println()
 
-	return response
+	for v in data.stack {
+		fmt.printf("%s|", v)
+	}
+	fmt.println()
+
+	response := make([][]byte, len(data.text))
+	copy_slice(response, data.text[:])
+
+	return response, nil
 }
