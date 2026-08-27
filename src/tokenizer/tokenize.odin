@@ -1,6 +1,5 @@
 package tokenizer
 
-import "core:fmt"
 Group :: enum {
 	Paren,
 	Curlie,
@@ -14,12 +13,12 @@ State :: enum {
 	Normal,
 }
 
-Data :: struct {
-	state: State,
-	start: int,
-	stack: [dynamic]Group,
-	text:  [dynamic][]byte,
-	input: []byte,
+TokenizerData :: struct {
+	input:       []byte,
+	state:       State,
+	start:       int,
+	group_stack: [dynamic]Group,
+	tokens:      [dynamic][]byte,
 }
 
 TokenizerError :: enum {
@@ -94,7 +93,7 @@ transition :: proc(transitor: byte) -> State {
 	return .Normal
 }
 
-process_tokenizer :: proc(data: ^Data, i: int) -> TokenizerError {
+process_tokenizer :: proc(data: ^TokenizerData, i: int) -> TokenizerError {
 	c := data.input[i]
 
 	switch data.state {
@@ -105,17 +104,17 @@ process_tokenizer :: proc(data: ^Data, i: int) -> TokenizerError {
 		data.start = i
 
 		if opener_char(c) {
-			open_stack(c, &data.stack)
-			append(&data.text, data.input[i:i + 1])
+			open_stack(c, &data.group_stack)
+			append(&data.tokens, data.input[i:i + 1])
 		}
 
 		if closer_char(c) {
-			err := close_stack(c, &data.stack)
+			err := close_stack(c, &data.group_stack)
 			if err != nil {
 				return err
 			}
 
-			append(&data.text, data.input[i:i + 1])
+			append(&data.tokens, data.input[i:i + 1])
 			return nil
 		}
 
@@ -130,15 +129,16 @@ process_tokenizer :: proc(data: ^Data, i: int) -> TokenizerError {
 			return nil
 		}
 
-		append(&data.text, data.input[data.start:i])
+		append(&data.tokens, data.input[data.start:i])
 		data.state = .Normal
+		process_tokenizer(data, i)
 
 	case .ReadingString:
 		if c != '"' {
 			return nil
 		}
 
-		append(&data.text, data.input[data.start:i + 1])
+		append(&data.tokens, data.input[data.start:i + 1])
 		data.state = .Normal
 	}
 
@@ -146,7 +146,7 @@ process_tokenizer :: proc(data: ^Data, i: int) -> TokenizerError {
 }
 
 tokenize :: proc(input: []byte) -> ([][]byte, TokenizerError) {
-	data := Data {
+	data := TokenizerData {
 		state = .Normal,
 		start = 0,
 		input = input,
@@ -157,29 +157,8 @@ tokenize :: proc(input: []byte) -> ([][]byte, TokenizerError) {
 		process_tokenizer(&data, i)
 	}
 
-	/*
-	switch data.state {
-	case .Normal:
-		break
-	case .ReadingVar:
-	case .ReadingString:
-		append(&data.text, input[data.start:i])
-	}
-	*/
-
-	for v in data.text {
-		fmt.printf("%s|", v)
-	}
-
-	fmt.println()
-
-	for v in data.stack {
-		fmt.printf("%s|", v)
-	}
-	fmt.println()
-
-	response := make([][]byte, len(data.text))
-	copy_slice(response, data.text[:])
+	response := make([][]byte, len(data.tokens))
+	copy_slice(response, data.tokens[:])
 
 	return response, nil
 }
