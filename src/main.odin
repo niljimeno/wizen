@@ -4,6 +4,7 @@ import "core:bufio"
 import "core:fmt"
 import "core:os"
 
+import "./generator"
 import "./parser"
 import "./tokenizer"
 
@@ -29,6 +30,9 @@ main :: proc() {
 
 	parsed_data := parser.parse(tokenized_text)
 	fmt.printf("%v\n", parsed_data)
+
+	js_code := generator.generate(parsed_data)
+	fmt.printf("%s\n", js_code)
 }
 
 run_interpreter :: proc() {
