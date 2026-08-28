@@ -10,6 +10,7 @@ Group :: enum {
 State :: enum {
 	ReadingVar,
 	ReadingString,
+	ReadingComment,
 	Normal,
 }
 
@@ -96,6 +97,10 @@ transition :: proc(transitor: byte) -> State {
 		return .ReadingString
 	}
 
+	if transitor == ';' {
+		return .ReadingComment
+	}
+
 	return .Normal
 }
 
@@ -129,6 +134,12 @@ process_tokenizer :: proc(data: ^TokenizerData, i: int) -> TokenizerError {
 		if err != nil {
 			return err
 		}
+
+	case .ReadingComment:
+		if c != '\n' {
+			return nil
+		}
+		data.state = .Normal
 
 	case .ReadingVar:
 		if var_char(c) {
