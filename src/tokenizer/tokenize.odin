@@ -1,10 +1,10 @@
 package tokenizer
 
 Group :: enum {
+	None,
 	Paren,
 	Curlie,
 	Square,
-	None,
 }
 
 State :: enum {
@@ -29,7 +29,13 @@ TokenizerError :: enum {
 Space :: enum {}
 
 word_char :: proc(c: byte) -> bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+	return(
+		(c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') ||
+		c == '.' ||
+		c == ',' \
+	)
 }
 
 var_char :: proc(c: byte) -> bool {

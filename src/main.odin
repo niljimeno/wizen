@@ -4,6 +4,7 @@ import "core:bufio"
 import "core:fmt"
 import "core:os"
 
+import "./parser"
 import "./tokenizer"
 
 main :: proc() {
@@ -14,12 +15,20 @@ main :: proc() {
 	}
 	defer delete(data)
 
+	fmt.printf("%s\n", data)
+
 	tokenized_text, tokErr := tokenizer.tokenize(data)
 	if err != nil {
 		fmt.panicf("%v\n", err)
 	}
 
-	fmt.printf("%s\n", data)
+	for token in tokenized_text {
+		fmt.printf("%s , ", token)
+	}
+	fmt.println()
+
+	parsed_data := parser.parse(tokenized_text)
+	fmt.printf("%v\n", parsed_data)
 }
 
 run_interpreter :: proc() {
