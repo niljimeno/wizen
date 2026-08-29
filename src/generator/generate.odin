@@ -23,20 +23,22 @@ get_base_function :: proc(name: string) -> string {
 	return ""
 }
 
+create_simple_function :: proc(fn: parser.Variable, arg: parser.Variable) -> parser.Variable {
+	new_fn_values := make([]parser.Variable, 2)
+	new_fn_values[0] = fn
+	new_fn_values[1] = arg
+
+	new_fn := parser.Variable {
+		type  = .Group,
+		value = new_fn_values,
+	}
+
+	return new_fn
+}
+
 add_first_argument :: proc(fn: parser.Variable, arg: parser.Variable) -> parser.Variable {
-	new_fn: parser.Variable
-
 	if fn.type == .Function {
-		new_fn_values := make([]parser.Variable, 2)
-		new_fn_values[0] = fn
-		new_fn_values[1] = arg
-
-		new_fn = parser.Variable {
-			type  = .Group,
-			value = new_fn_values,
-		}
-
-		return new_fn
+		return create_simple_function(fn, arg)
 	}
 
 	fn_values: []parser.Variable = fn.value.?
@@ -50,7 +52,7 @@ add_first_argument :: proc(fn: parser.Variable, arg: parser.Variable) -> parser.
 		new_fn_values[i + 1] = fn_values[i]
 	}
 
-	new_fn = parser.Variable {
+	new_fn := parser.Variable {
 		type  = .Group,
 		value = new_fn_values,
 	}
@@ -58,7 +60,34 @@ add_first_argument :: proc(fn: parser.Variable, arg: parser.Variable) -> parser.
 	return new_fn
 }
 
-generate_basic_thread :: proc(args: []parser.Variable) -> []u8 {
+add_last_argument :: proc(fn: parser.Variable, arg: parser.Variable) -> parser.Variable {
+	if fn.type == .Function {
+		return create_simple_function(fn, arg)
+	}
+
+	fn_values: []parser.Variable = fn.value.?
+	defer delete(fn_values)
+
+	new_fn_values := make([]parser.Variable, len(fn_values) + 1)
+
+	new_fn_values[0] = fn_values[0]
+	for i := 1; i < len(fn_values); i += 1 {
+		new_fn_values[i] = fn_values[i]
+	}
+	new_fn_values[len(fn_values)] = arg
+
+	new_fn := parser.Variable {
+		type  = .Group,
+		value = new_fn_values,
+	}
+
+	return new_fn
+}
+
+generate_thread :: proc(
+	args: []parser.Variable,
+	thread_appender: proc(fn: parser.Variable, args: parser.Variable) -> parser.Variable,
+) -> []u8 {
 	value := args[0]
 
 	for i := 1; i < len(args); i += 1 {
@@ -72,7 +101,9 @@ generate_basic_thread :: proc(args: []parser.Variable) -> []u8 {
 get_advanced_function :: proc(name: string, args: []parser.Variable) -> []u8 {
 	switch name {
 	case "->":
-		return generate_basic_thread(args)
+		return generate_thread(args, add_first_argument)
+	case "->>":
+		return generate_thread(args, add_last_argument)
 	}
 
 	return nil
