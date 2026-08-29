@@ -21,30 +21,58 @@ get_base_function :: proc(name: string) -> string {
 	return ""
 }
 
-generate_thread :: proc(args: []parser.Variable) -> string {
-	new_args := make([][]byte, len(args))
-	initial_value := args[0]
+add_first_argument :: proc(fn: parser.Variable, arg: parser.Variable) -> parser.Variable {
+	new_fn: parser.Variable
 
-	for i := len(args) - 1; i > 0; i += 1 {
-		if args[i].type == .Function {
-			// get it into a group, otherwise add to existing group
-			_ = parser.Variable {
-				type  = .Group,
-				value = []parser.Variable{args[0]},
-			}
+	if fn.type == .Function {
+		new_fn_values := make([]parser.Variable, 2)
+		new_fn_values[0] = fn
+		new_fn_values[1] = arg
+
+		new_fn = parser.Variable {
+			type  = .Group,
+			value = new_fn_values,
 		}
+
+		return new_fn
 	}
 
-	return ""
+	fn_values: []parser.Variable = fn.value.?
+	new_fn_values := make([]parser.Variable, len(fn_values) + 1)
+
+	new_fn_values[0] = fn_values[0]
+	new_fn_values[1] = arg
+	for i := 1; i < len(fn_values); i += 1 {
+		new_fn_values[i + 1] = fn_values[i]
+	}
+
+	new_fn = parser.Variable {
+		type  = .Group,
+		value = new_fn_values,
+	}
+
+	return new_fn
 }
 
-get_advanced_function :: proc(name: string, args: []parser.Variable) -> string {
-	switch name {
-	case "->":
-		return generate_thread(args)
+generate_basic_thread :: proc(args: []parser.Variable) -> []u8 {
+	new_args := make([][]byte, len(args))
+	value := args[0]
+
+	for i := 1; i < len(args); i += 1 {
+		new_value := add_first_argument(args[i], value)
+		value = new_value
 	}
 
-	return ""
+	return generate_from_variable(value)
+}
+
+get_advanced_function :: proc(name: string, args: []parser.Variable) -> []u8 {
+	switch name {
+	case "->":
+		return generate_basic_thread(args)
+	}
+
+	return nil
 }
 
 generate_group :: proc(input: parser.Variable) -> [dynamic]byte {
@@ -85,10 +113,9 @@ generate_group :: proc(input: parser.Variable) -> [dynamic]byte {
 		return generated_code
 	}
 
-	advanced_function := get_advanced_function(function_name, elements[1:])
-	if advanced_function != "" {
-		content := fmt.tprintf("%s(%s)\n", advanced_function, inner_code)
-		append(&generated_code, content)
+	advanced_function_content := get_advanced_function(function_name, elements[1:])
+	if advanced_function_content != nil {
+		append(&generated_code, ..advanced_function_content)
 		return generated_code
 	}
 
