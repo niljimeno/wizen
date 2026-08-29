@@ -15,7 +15,33 @@ get_base_function :: proc(name: string) -> string {
 	case "print":
 		return "console.log"
 	case "+":
-		return "add"
+		return "_add"
+	}
+
+	return ""
+}
+
+generate_thread :: proc(args: []parser.Variable) -> string {
+	new_args := make([][]byte, len(args))
+	initial_value := args[0]
+
+	for i := len(args) - 1; i > 0; i += 1 {
+		if args[i].type == .Function {
+			// get it into a group, otherwise add to existing group
+			_ = parser.Variable {
+				type  = .Group,
+				value = []parser.Variable{args[0]},
+			}
+		}
+	}
+
+	return ""
+}
+
+get_advanced_function :: proc(name: string, args: []parser.Variable) -> string {
+	switch name {
+	case "->":
+		return generate_thread(args)
 	}
 
 	return ""
@@ -39,7 +65,7 @@ generate_group :: proc(input: parser.Variable) -> [dynamic]byte {
 
 	elements_code := [dynamic][]byte{}
 	for element in elements[1:] {
-		append(&elements_code, generate_nested(element))
+		append(&elements_code, generate_from_variable(element))
 	}
 
 	separator := []byte{',', ' '}
@@ -56,12 +82,20 @@ generate_group :: proc(input: parser.Variable) -> [dynamic]byte {
 	if base_function != "" {
 		content := fmt.tprintf("%s(%s)\n", base_function, inner_code)
 		append(&generated_code, content)
+		return generated_code
+	}
+
+	advanced_function := get_advanced_function(function_name, elements[1:])
+	if advanced_function != "" {
+		content := fmt.tprintf("%s(%s)\n", advanced_function, inner_code)
+		append(&generated_code, content)
+		return generated_code
 	}
 
 	return generated_code
 }
 
-generate_nested :: proc(input: parser.Variable) -> []byte {
+generate_from_variable :: proc(input: parser.Variable) -> []byte {
 	// !todo use context for code gen
 	generated_code: [dynamic]byte
 
@@ -94,7 +128,7 @@ generate :: proc(input: []parser.Variable) -> []byte {
 	append(&generated_code, ..#load("../js/core.js"))
 
 	for el in input {
-		append(&generated_code, ..generate_nested(el))
+		append(&generated_code, ..generate_from_variable(el))
 	}
 
 	return into_static(generated_code)

@@ -8,6 +8,19 @@ import "./generator"
 import "./parser"
 import "./tokenizer"
 
+process :: proc(data: []byte) -> []byte {
+	tokenized_text, err := tokenizer.tokenize(data)
+	if err != nil {
+		fmt.printf("Syntax error: %v\n", err)
+		return nil
+	}
+
+	parsed_data := parser.parse(tokenized_text)
+	js_code := generator.generate(parsed_data)
+
+	return js_code
+}
+
 main :: proc() {
 	data, err := os.read_entire_file("tests/1.scm", context.allocator)
 	if err != nil {
@@ -16,23 +29,8 @@ main :: proc() {
 	}
 	defer delete(data)
 
-	fmt.printf("%s\n", data)
-
-	tokenized_text, tokErr := tokenizer.tokenize(data)
-	if err != nil {
-		fmt.panicf("%v\n", err)
-	}
-
-	for token in tokenized_text {
-		fmt.printf("%s , ", token)
-	}
-	fmt.println()
-
-	parsed_data := parser.parse(tokenized_text)
-	fmt.printf("%v\n", parsed_data)
-
-	js_code := generator.generate(parsed_data)
-	fmt.printf("%s\n", js_code)
+	fmt.printf("%s\n", process(data))
+	run_interpreter()
 }
 
 run_interpreter :: proc() {
@@ -47,6 +45,6 @@ run_interpreter :: proc() {
 			break
 		}
 
-		fmt.printf("%s", line)
+		fmt.printf("%s\n", process(transmute([]byte)line))
 	}
 }

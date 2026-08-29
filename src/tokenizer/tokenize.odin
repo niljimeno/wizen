@@ -23,7 +23,9 @@ TokenizerData :: struct {
 }
 
 TokenizerError :: enum {
+	Ok,
 	UnclosedParentheses,
+	UnclosedQuotes,
 	ParenthesesMismatch,
 }
 
@@ -179,6 +181,14 @@ tokenize :: proc(input: []byte) -> ([][]byte, TokenizerError) {
 	i: int
 	for ; i < len(input); i += 1 {
 		process_tokenizer(&data, i)
+	}
+
+	if len(data.group_stack) != 0 {
+		return nil, .UnclosedParentheses
+	}
+
+	if data.state == .ReadingString {
+		return nil, .UnclosedQuotes
 	}
 
 	response := make([][]byte, len(data.tokens))
