@@ -177,6 +177,8 @@ tokenize :: proc(input: []byte) -> ([][]byte, TokenizerError) {
 		start = 0,
 		input = input,
 	}
+	defer delete(data.group_stack)
+	defer delete(data.tokens)
 
 	i: int
 	for ; i < len(input); i += 1 {

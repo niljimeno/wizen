@@ -16,7 +16,10 @@ process :: proc(data: []byte) -> []byte {
 	}
 
 	parsed_data := parser.parse(tokenized_text)
+	delete(tokenized_text)
+
 	js_code := generator.generate(parsed_data)
+	delete(parsed_data)
 
 	return js_code
 }
@@ -29,7 +32,10 @@ main :: proc() {
 	}
 	defer delete(data)
 
-	fmt.printf("%s\n", process(data))
+	code := process(data)
+	fmt.printf("%s\n", code)
+	delete(code)
+
 	run_interpreter()
 }
 
@@ -44,7 +50,11 @@ run_interpreter :: proc() {
 			fmt.println()
 			break
 		}
+		defer delete(line)
 
-		fmt.printf("%s\n", process(transmute([]byte)line))
+		js_code := process(transmute([]byte)line)
+		defer delete(js_code)
+
+		fmt.printf("%s\n", js_code)
 	}
 }

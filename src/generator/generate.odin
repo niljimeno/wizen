@@ -7,6 +7,8 @@ import "core:fmt"
 into_static :: proc(input: [dynamic]byte) -> []byte {
 	response := make([]byte, len(input))
 	copy_slice(response, input[:])
+	defer delete(input)
+
 	return response
 }
 
@@ -38,6 +40,8 @@ add_first_argument :: proc(fn: parser.Variable, arg: parser.Variable) -> parser.
 	}
 
 	fn_values: []parser.Variable = fn.value.?
+	defer delete(fn_values)
+
 	new_fn_values := make([]parser.Variable, len(fn_values) + 1)
 
 	new_fn_values[0] = fn_values[0]
@@ -55,7 +59,6 @@ add_first_argument :: proc(fn: parser.Variable, arg: parser.Variable) -> parser.
 }
 
 generate_basic_thread :: proc(args: []parser.Variable) -> []u8 {
-	new_args := make([][]byte, len(args))
 	value := args[0]
 
 	for i := 1; i < len(args); i += 1 {
@@ -78,6 +81,8 @@ get_advanced_function :: proc(name: string, args: []parser.Variable) -> []u8 {
 generate_group :: proc(input: parser.Variable) -> [dynamic]byte {
 	generated_code := [dynamic]byte{}
 	elements: []parser.Variable = input.value.?
+	defer delete(elements)
+
 	if len(elements) < 1 {
 		fmt.println("too few elements!")
 		return nil
@@ -91,23 +96,29 @@ generate_group :: proc(input: parser.Variable) -> [dynamic]byte {
 		function = first^
 	}
 
-	elements_code := [dynamic][]byte{}
-	for element in elements[1:] {
-		append(&elements_code, generate_from_variable(element))
-	}
-
-	separator := []byte{',', ' '}
-	inner_code := bytes.join(elements_code[:], separator)
-
 	if function.type != .Function {
 		fmt.println("No function :c")
 		return nil
 	}
 
-
 	function_name: string = elements[0].value.?
 	base_function := get_base_function(function_name)
+
 	if base_function != "" {
+		elements_code := [dynamic][]byte{}
+		for element in elements[1:] {
+			append(&elements_code, generate_from_variable(element))
+		}
+
+		separator := []byte{',', ' '}
+		inner_code := bytes.join(elements_code[:], separator)
+		defer delete(inner_code)
+
+		for e in elements_code {
+			delete(e)
+		}
+		delete(elements_code)
+
 		content := fmt.tprintf("%s(%s)\n", base_function, inner_code)
 		append(&generated_code, content)
 		return generated_code
@@ -116,6 +127,7 @@ generate_group :: proc(input: parser.Variable) -> [dynamic]byte {
 	advanced_function_content := get_advanced_function(function_name, elements[1:])
 	if advanced_function_content != nil {
 		append(&generated_code, ..advanced_function_content)
+		delete(advanced_function_content)
 		return generated_code
 	}
 

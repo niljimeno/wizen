@@ -64,6 +64,8 @@ Parser :: struct {
 }
 
 manual_append_first :: proc(og: []Variable, first: Variable) -> []Variable {
+	defer delete(og)
+
 	new_array := make([]Variable, len(og) + 1)
 	new_array[0] = first
 
@@ -88,6 +90,8 @@ distance_from_next_group :: proc(input: [][]byte) -> int {
 	}
 
 	stack := [dynamic]tokenizer.Group{}
+	defer delete(stack)
+
 	stack_size := 1
 	append(&stack, opener)
 
@@ -130,7 +134,10 @@ parse_step :: proc(input: [][]byte) -> (Variable, int) {
 	opener := get_opener(input[index])
 	if opener != nil {
 		starting_point := index + 1
+
 		stack := [dynamic]tokenizer.Group{}
+		defer delete(stack)
+
 		append(&stack, opener)
 		stack_size := 1
 
@@ -156,15 +163,18 @@ parse_step :: proc(input: [][]byte) -> (Variable, int) {
 
 		#partial switch opener {
 		case .Square:
-			inner_group = manual_append_first(
-				inner_group,
-				Variable{type = .Function, value = "list"},
-			)
+			inner_group_value := Variable {
+				type  = .Function,
+				value = "list",
+			}
+			inner_group = manual_append_first(inner_group, inner_group_value)
+
 		case .Curlie:
-			inner_group = manual_append_first(
-				inner_group,
-				Variable{type = .Function, value = "struct"},
-			)
+			inner_group_value := Variable {
+				type  = .Function,
+				value = "struct",
+			}
+			inner_group = manual_append_first(inner_group, inner_group_value)
 		}
 
 		return Variable{type = .Group, value = inner_group}, index
