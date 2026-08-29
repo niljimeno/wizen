@@ -1,3 +1,5 @@
 (print "hello world")
 
-(print (list 1.1 22))
+(print (+ 1 2))
+
+(print (+ "caca seca" " " (+ 60 9)))
